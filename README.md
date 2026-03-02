@@ -1,11 +1,15 @@
 # Structured distance to singularity
-This repository contains code for finding the linearly structured distance to singularity.
+This repository contains code for finding the linearly structured distance to singularity. It is based on the work 
+
+L. Nyman. “Singular vector spaces for computing the structured distance to singularity”, 2026, arXiv
 
 The code requires that [Manopt](https://www.manopt.org/downloads.html) is downloaded and set in your path. Manopt is used for the Augmented Lagrangian option as well as certain tensor operations in the code.
 
 This code has been tested with Manopt 8.0 and Matlab 2025b.
 
 The file ``svdmin.m``, written by Ethan N. Epperly, Yuji Nakatsukasa and Taejun Park, is based on the work "Fast, High-Accuracy, Randomized Nullspace Computations for Tall Matrices", 2026, https://arxiv.org/abs/2602.16797 
+
+## How to use?
 
 The file ``example_toeplitz.m`` shows an example of how to run the algorithm.
 
