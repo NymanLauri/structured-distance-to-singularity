@@ -1,4 +1,4 @@
-function [Delta,inner_iteration_count] = structured_distance_to_singularity(A,P,augmented_lagrangian,regularize,alternate,use_left_kernel)
+function [Delta,inner_iteration_count] = structured_distance_to_singularity(A,P,augmented_lagrangian,regularize,alternate,use_left_kernel,inner_tol,eps_update_factor)
 [n,m] = size(A);
 
 if not(exist('augmented_lagrangian', 'var'))
@@ -12,6 +12,12 @@ if not(exist('alternate', 'var'))
 end
 if not(exist('use_left_kernel', 'var'))
     use_left_kernel = 0;
+end
+if not(exist('inner_tol', 'var'))
+    inner_tol = 1e-8;
+end
+if not(exist('eps_update_factor', 'var'))
+    eps_update_factor = 0.5;
 end
 
 assert(alternate <=2 && 0 <= alternate)
@@ -36,7 +42,7 @@ if use_left_kernel || ~regularize || alternate == 1
     Pt_mat2 = sparse(Pt_mat2).';
 end
 
-eps_range = 10.^(-(1:0.5:17));
+eps_range = 10.^(-(1:eps_update_factor:17));
 
 % Initial guess for the vector in the kernel
 V0 = orth(randn(m));
@@ -70,10 +76,10 @@ for eps_reg = eps_range
                 Delta = tensorize(Delta, 3, [n,m]);
                 reg_norms = [reg_norms sqrt(norm(Delta,'f')^2+1/eps_reg*norm((A+Delta)*V + eps_reg*y)^2)];
             end
-            if abs(reg_norms(end-1)-reg_norms(end)) < 1e-8
+            if abs(reg_norms(end-1)-reg_norms(end)) < inner_tol
                 break
             end
-            if reg_norms(end-1) < reg_norms(end) - 1e-8
+            if reg_norms(end-1) < reg_norms(end) - inner_tol
                 % Value of objective function increased between iterations.
                 % Can be commented out. Keeping this for now for debugging
                 % purposes.
@@ -104,7 +110,7 @@ for eps_reg = eps_range
         
             norms = [norms norm(Delta,'f')];
          
-            if abs(norms(end-1)-norms(end)) < 1e-8
+            if abs(norms(end-1)-norms(end)) < inner_tol
                 break
             end
         else
@@ -151,7 +157,7 @@ for eps_reg = eps_range
                  
             end
 
-            if abs(reg_norms(end-1)-reg_norms(end)) < 1e-8
+            if abs(reg_norms(end-1)-reg_norms(end)) < inner_tol
                 break
             end
 
@@ -160,20 +166,16 @@ for eps_reg = eps_range
         
         if augmented_lagrangian && ~all(y == 0)
             AplusD = A+Delta;
-            ATA = AplusD'*AplusD;
 
-            problem.cost = @(V) 0.5*norm((AplusD)*V + eps_reg*y,'f')^2;
-            problem.egrad = @(V) (ATA*V + AplusD'*eps_reg*y);
-            problem.ehess = @(V,dV) ATA*dV;
+            egrad = (AplusD'*(AplusD*V) + AplusD'*eps_reg*y) / eps_reg;
+            v_egrad = V'*egrad;
+            grad = egrad - v_egrad*V;
 
-            problem.M = spherecomplexfactory(m);
-            options.tolgradnorm = 5e-6;
-            options.verbosity = 0; 
-            options.maxiter = 1;
-            options.maxinner = 100; 
+            H_proj = @(dV) apply_riemannian_hessian(dV, AplusD, V, v_egrad, eps_reg);
+            [dV, ~] = minres(H_proj, -grad, 5e-6, 100);
 
-            [x, ~, ~] = trustregions(problem, V, options);
-            V = x;
+            V = V + dV;
+            V = V / norm(V);
         else
             AplusD = A+Delta;
             if eps_reg <= 1e-6 || regularize == 0
@@ -208,24 +210,31 @@ if ~issparse(A); Delta = full(Delta); end
 
 warning(saved_warning_state);
 
-function [c,store] = cost(V,AplusD,eps_reg,y,store)
-    if ~isfield(store, 'c')
-        store.c = norm((AplusD)*V + eps_reg*y,'f')^2;
-    end
-    c = store.c;
+
+function H_out = apply_riemannian_hessian(dV, AplusD, V, v_egrad, eps_reg)
+    dV = dV - (V'*dV)*V;
+    H_dV = (AplusD'*(AplusD*dV)) / eps_reg - v_egrad*dV;
+    H_out = H_dV - (V'*H_dV)*V;
 end
 
-function [g,store] = egrad(V,AplusD,ATA,eps_reg,y,store)
-    if ~isfield(store, 'g')
-        store.g = 2*ATA*V + 2*AplusD'*eps_reg*y;
-    end
-    g = store.g;
-end
+% function [c,store] = cost(V,AplusD,eps_reg,y,store)
+%     if ~isfield(store, 'c')
+%         store.c = norm((AplusD)*V + eps_reg*y,'f')^2;
+%     end
+%     c = store.c;
+% end
 
-function [h,store] = ehess(dV,ATA,store)
-    store.h = 2*ATA*dV;
-    h = store.h;
-end
+% function [g,store] = egrad(V,AplusD,ATA,eps_reg,y,store)
+%     if ~isfield(store, 'g')
+%         store.g = 2*ATA*V + 2*AplusD'*eps_reg*y;
+%     end
+%     g = store.g;
+% end
+
+% function [h,store] = ehess(dV,ATA,store)
+%     store.h = 2*ATA*dV;
+%     h = store.h;
+% end
 
 function M = make_M(P, v)
     M = reshape(pagemtimes(P, v), [size(P,1) size(P,3)]);
