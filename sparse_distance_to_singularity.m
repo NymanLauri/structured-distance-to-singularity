@@ -43,12 +43,6 @@ while eps_reg > 1e-17
         if abs(reg_norms(end-1)-reg_norms(end)) < 1e-12
             break
         end
-        if reg_norms(end-1) < reg_norms(end) - 1e-8
-            % Value of objective function increased between iterations.
-            % Can be commented out. Keeping this for now for debugging
-            % purposes.
-            % keyboard
-        end
 
         if index > 100
             break
@@ -110,9 +104,6 @@ while eps_reg > 1e-17
             end
         end
         eps_reg = eps_reg_new;
-
-        % Standard update
-        % eps_reg = eps_reg/sqrt(10);
     end
 
     inner_iteration_count = inner_iteration_count + length(reg_norms) - 1;
