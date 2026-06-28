@@ -79,12 +79,6 @@ for eps_reg = eps_range
             if abs(reg_norms(end-1)-reg_norms(end)) < inner_tol
                 break
             end
-            if reg_norms(end-1) < reg_norms(end) - inner_tol
-                % Value of objective function increased between iterations.
-                % Can be commented out. Keeping this for now for debugging
-                % purposes.
-                % keyboard
-            end
         else
             M = make_M2(P_mat2, size(P,1), size(P,3), V);
             delta = - pinv(M)*A*V;
@@ -216,25 +210,6 @@ function H_out = apply_riemannian_hessian(dV, AplusD, V, v_egrad, eps_reg)
     H_dV = (AplusD'*(AplusD*dV)) / eps_reg - v_egrad*dV;
     H_out = H_dV - (V'*H_dV)*V;
 end
-
-% function [c,store] = cost(V,AplusD,eps_reg,y,store)
-%     if ~isfield(store, 'c')
-%         store.c = norm((AplusD)*V + eps_reg*y,'f')^2;
-%     end
-%     c = store.c;
-% end
-
-% function [g,store] = egrad(V,AplusD,ATA,eps_reg,y,store)
-%     if ~isfield(store, 'g')
-%         store.g = 2*ATA*V + 2*AplusD'*eps_reg*y;
-%     end
-%     g = store.g;
-% end
-
-% function [h,store] = ehess(dV,ATA,store)
-%     store.h = 2*ATA*dV;
-%     h = store.h;
-% end
 
 function M = make_M(P, v)
     M = reshape(pagemtimes(P, v), [size(P,1) size(P,3)]);
